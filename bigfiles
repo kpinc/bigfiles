@@ -1,0 +1,58 @@
+#!/bin/sh
+# This program is bigfiles
+# Copyright (C) 2014 The Meme Factory, Inc.  http://www.meme.com/
+#
+#    bigfiles is free software; you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation; either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+# Karl O. Pinc <kop@meme.com>
+#
+#Script to search for big files.
+#
+# Syntax: bigfiles dir size
+#
+# Input:
+#   dir   Directory imported directly from svn2git, not the bare dir.
+#   size  Find files at least this size (a find(1) -size argument)
+#
+# Run it on the chado directory, the one created
+# directly by 'git svn clone', not the chado.git directory.
+
+export SIZELIMIT=$2
+
+cd "$1"
+
+export c=0
+export r=0
+while [[ $r = 0 ]] ; do
+  find . -path ./.git \
+         -prune \
+         -o \
+         -size +$SIZELIMIT \
+         -exec sh -c 'd=$(dirname "$1" | sed "s%^\./%%")
+                      archive_d="../sizes/$2/$d"
+                      mkdir -p "$archive_d"
+                      export l_d="../sizes/$(($2 - 1))/$d"
+                      if [ -d "$l_d" ] ; then
+                        ldarg="--link-dest=$(pwd)/$l_d"
+                      else
+                        ldarg=""
+                      fi
+                      rsync $ldarg \
+                            "$1" \
+                            "$archive_d"' \
+                  archivebig \
+                  {} \
+                  $c \
+               \;
+  c=$((c + 1))
+  git reset --hard HEAD^
+  r=$?
+done
